@@ -59,18 +59,21 @@ func generateWorld(width int, height int) World {
 
 func next(world World) World {
 	nextCells := make([]Cell, world.Width*world.Height)
+	ch := make(chan bool)
 
 	for x := 0; x < world.Width; x++ {
 		for y := 0; y < world.Height; y++ {
 			index := y*world.Width + x
-			count := countAroundAliveCells(world, index)
-			if count == 3 {
-				nextCells[index].Alive = true
-			} else if count == 2 {
-				nextCells[index].Alive = world.Cells[index].Alive
-			} else {
-				nextCells[index].Alive = false
-			}
+			// Using Goroutines here is not a good idea
+			// but they are being used for practice purposes.
+			go cellAlive(world, index, ch)
+		}
+	}
+
+	for x := 0; x < world.Width; x++ {
+		for y := 0; y < world.Height; y++ {
+			index := y*world.Width + x
+			nextCells[index].Alive = <-ch
 		}
 	}
 
@@ -83,7 +86,24 @@ func next(world World) World {
 	return nextWorld
 }
 
+func cellAlive(world World, targetCellIndex int, ch chan bool) {
+	var alive bool
+
+	count := countAroundAliveCells(world, targetCellIndex)
+	if count == 3 {
+		alive = true
+	} else if count == 2 {
+		alive = world.Cells[targetCellIndex].Alive
+	} else {
+		alive = false
+	}
+
+	ch <- alive
+}
+
 func countAroundAliveCells(world World, centerCellIndex int) int {
+	dummyHeavyTask()
+
 	count := 0
 
 	for xdiff := -1; xdiff <= 1; xdiff++ {
@@ -127,4 +147,8 @@ func clear() {
 	cmd := exec.Command("clear")
 	cmd.Stdout = os.Stdout
 	cmd.Run()
+}
+
+func dummyHeavyTask() {
+	time.Sleep(1 * time.Millisecond)
 }
